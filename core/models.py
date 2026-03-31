@@ -23,12 +23,19 @@ class Dispositivo(models.Model):
         return f"Dispositivo {self.user}"
 
     @classmethod
-    def verificar(self, id: str) -> str:
+    def verificar(cls, id: str) -> str:
         return hashlib.sha256(id.encode()).hexdigest()
 
+    @classmethod
+    def es_uuid_canonico(cls, value: str) -> bool:
+        if len(value) != 64:
+            return False
+
+        return all(char in "0123456789abcdef" for char in value.lower())
+
     def save(self, **kwargs):
-        if not self.uuid:
-            self.uuid = hashlib.sha256(self.uuid.encode()).hexdigest()
+        if self.uuid and not self.es_uuid_canonico(self.uuid):
+            self.uuid = self.verificar(self.uuid)
         super().save(**kwargs)
 
 

@@ -26,16 +26,28 @@ class LoginView(View):
             if user:
                 obj = None
                 if data.get("id_dispositivo") and data.get("modelo"):
-                    if not user.dispositivo_set.filter(
-                        uuid=Dispositivo.verificar(data.get("id_dispositivo"))).exists():
+                    raw_device_id = data.get("id_dispositivo")
+                    canonical_uuid = Dispositivo.verificar(raw_device_id)
+
+                    obj = user.dispositivo_set.filter(uuid=canonical_uuid).first()
+                    if not obj:
+                        obj = user.dispositivo_set.filter(uuid=raw_device_id).first()
+
+                    if obj:
+                        updated = False
+                        if obj.uuid != canonical_uuid:
+                            obj.uuid = canonical_uuid
+                            updated = True
+                        if obj.modelo != data.get("modelo"):
+                            obj.modelo = data.get("modelo")
+                            updated = True
+                        if updated:
+                            obj.save()
+                    else:
                         obj = user.dispositivo_set.create(
-                            uuid=data.get("id_dispositivo"),
+                            uuid=canonical_uuid,
                             modelo=data.get("modelo")
                         )
-
-                    else:
-                        obj = user.dispositivo_set.filter(
-                            uuid=Dispositivo.verificar(data.get("id_dispositivo"))).first()
 
                     return JsonResponse({"device" : obj.uuid}, status=201)
 

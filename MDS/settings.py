@@ -13,13 +13,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SERVER_KEY")
 
+def env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+def env_list(name: str, default: str) -> list[str]:
+    raw_value = os.environ.get(name, default)
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = env_bool("DJANGO_DEBUG", False)
 
-ALLOWED_HOSTS = ["jakarupora.telco.com.ar", "179.0.181.50"]
+ALLOWED_HOSTS = env_list(
+    "DJANGO_ALLOWED_HOSTS",
+    "jakarupora.telco.com.ar,179.0.181.50"
+)
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", True)
+CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", True)
 
 # Application definition
 
@@ -67,16 +80,29 @@ WSGI_APPLICATION = 'MDS.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default" : {
-        "ENGINE" : "django.db.backends.mysql",
-        "NAME": "mds",
-        "USER": os.environ.get("DB_USER"),
-        "PASSWORD": os.environ.get("DB_PASSWORD"),
-        "HOST": "127.0.0.1",
-        "PORT": "3306"
+db_engine = os.environ.get("DJANGO_DB_ENGINE", "mysql").strip().lower()
+
+if db_engine == "sqlite":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.environ.get(
+                "DJANGO_DB_NAME",
+                BASE_DIR / "db.sqlite3"
+            ),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default" : {
+            "ENGINE" : "django.db.backends.mysql",
+            "NAME": os.environ.get("DJANGO_DB_NAME", "mds"),
+            "USER": os.environ.get("DJANGO_DB_USER", os.environ.get("DB_USER")),
+            "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", os.environ.get("DB_PASSWORD")),
+            "HOST": os.environ.get("DJANGO_DB_HOST", "127.0.0.1"),
+            "PORT": os.environ.get("DJANGO_DB_PORT", "3306")
+        }
+    }
 
 
 # Password validation

@@ -32,9 +32,10 @@ Este repositorio se inicializa como onboarding tecnico de un sistema heredado po
 
 - Python 3.12 o compatible
 - `venv` y `pip` disponibles para Python 3
-- MySQL accesible en `127.0.0.1:3306`
-- Base de datos `mds` creada
-- Credenciales validas para MySQL
+- MySQL accesible en `127.0.0.1:3306` para el modo heredado por defecto
+- Opcionalmente, SQLite para desarrollo rapido local
+- Base de datos `mds` creada si se usa MySQL
+- Credenciales validas para MySQL si se usa MySQL
 
 ## Variables de entorno
 
@@ -43,8 +44,21 @@ Crear `.env` a partir de `.env.example`.
 Variables requeridas:
 
 - `DJANGO_SERVER_KEY`: secret key usada para firmar JWT
-- `DB_USER`: usuario de MySQL
-- `DB_PASSWORD`: password de MySQL
+- `DJANGO_DB_ENGINE`: `mysql` por defecto, `sqlite` para desarrollo local
+- `DJANGO_DB_NAME`
+- `DJANGO_DB_HOST`
+- `DJANGO_DB_PORT`
+- `DJANGO_DB_USER`
+- `DJANGO_DB_PASSWORD`
+- `DJANGO_DEBUG`
+- `DJANGO_ALLOWED_HOSTS`
+- `DJANGO_SESSION_COOKIE_SECURE`
+- `DJANGO_CSRF_COOKIE_SECURE`
+
+Compatibilidad heredada:
+
+- `DB_USER`
+- `DB_PASSWORD`
 
 ## Puesta en marcha local
 
@@ -80,26 +94,28 @@ python3 -m venv .venv
 .venv/bin/python manage.py runserver
 ```
 
+### Modo local rapido con SQLite
+
+Para desarrollo local sin MySQL:
+
+```bash
+DJANGO_SERVER_KEY=dev-secret \
+DJANGO_DEBUG=true \
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost \
+DJANGO_SESSION_COOKIE_SECURE=false \
+DJANGO_CSRF_COOKIE_SECURE=false \
+DJANGO_DB_ENGINE=sqlite \
+DJANGO_DB_NAME=db.sqlite3 \
+.venv/bin/python manage.py runserver 127.0.0.1:8000
+```
+
 ## Consideraciones para entorno local
 
-La configuracion actual viene orientada a un despliegue productivo heredado:
-
-- `DEBUG` esta fijo en `False`
-- `ALLOWED_HOSTS` solo incluye `jakarupora.telco.com.ar` y `179.0.181.50`
-- `SESSION_COOKIE_SECURE` y `CSRF_COOKIE_SECURE` estan en `True`
-
-Por lo tanto, un arranque local completo por HTTP plano puede requerir ajustes temporales en configuracion para desarrollo. Este bootstrap no cambia ese comportamiento; solo lo documenta.
+La configuracion heredada sigue orientada a produccion, pero ahora puede sobreescribirse por entorno para desarrollo local. MySQL sigue siendo el default si no se define nada.
 
 ## Base de datos
 
-La configuracion activa usa MySQL, no SQLite, aun cuando exista un `db.sqlite3` local en el directorio.
-
-Configuracion hardcodeada en `MDS/settings.py`:
-
-- engine: `django.db.backends.mysql`
-- database: `mds`
-- host: `127.0.0.1`
-- port: `3306`
+La configuracion activa usa MySQL por defecto, pero ahora admite SQLite para desarrollo local mediante `DJANGO_DB_ENGINE=sqlite`.
 
 ## API disponible hoy
 
@@ -127,6 +143,8 @@ Configuracion hardcodeada en `MDS/settings.py`:
   - autentica usuario y registra/valida un dispositivo
   - espera `username`, `password`, `id_dispositivo` y `modelo`
   - devuelve `device` para usar en el header `X-DEVICE-ID`
+  - permanece marcado con `@csrf_exempt` por tratarse de una API JSON usada por cliente mobile
+  - normaliza `device` al valor canonico basado en SHA-256
 
 - `GET /jakaru_pora/api/v1/relevamientos`
   - requiere Bearer token
@@ -162,6 +180,8 @@ El comando genera `media/out.csv` con credenciales cuando se usa el modo masivo.
 - La cobertura de tests no esta implementada en forma significativa.
 - Hay dependencias operativas externas no versionadas en este repo: base MySQL, datos reales y archivos media.
 - Existen decisiones tecnicas heredadas que conviene revisar antes de evolucionar funcionalmente el sistema.
+- El endpoint mobile de auth sigue usando `@csrf_exempt`.
+- La seguridad y operacion heredadas se mantuvieron; solo se agrego configuracion por entorno y normalizacion del `device`.
 
 ## Contenido versionado en esta inicializacion
 

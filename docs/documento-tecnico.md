@@ -78,6 +78,8 @@ Detalles:
 
 - Autentica usuario con credenciales Django
 - Busca o crea un `Dispositivo`
+- El endpoint sigue expuesto con `@csrf_exempt` por tratarse de una API JSON usada por cliente mobile
+- El identificador devuelto en `device` se normaliza al formato canónico `sha256(id_dispositivo)`
 - El `POST` de relevamientos usa `device_required` y espera el header `X-DEVICE-ID`
 
 ## 4. Modelado actual
@@ -208,18 +210,27 @@ El modelo guarda fotos en `media/jakaru_pora/relevamiento`.
 
 ### 6.1 Settings relevantes
 
-- `DEBUG = False`
-- `ALLOWED_HOSTS = ["jakarupora.telco.com.ar", "179.0.181.50"]`
+- `DEBUG` configurable por `DJANGO_DEBUG`
+- `ALLOWED_HOSTS` configurable por `DJANGO_ALLOWED_HOSTS`
 - `AUTH_USER_MODEL = "core.User"`
-- base de datos MySQL `mds`
+- base de datos MySQL por defecto, SQLite opcional para desarrollo local
 - `STATICFILES_DIRS = [BASE_DIR / "static"]`
 - `MEDIA_ROOT = BASE_DIR / "media"`
 
 ### 6.2 Variables de entorno requeridas
 
 - `DJANGO_SERVER_KEY`
-- `DB_USER`
-- `DB_PASSWORD`
+- `DJANGO_DB_ENGINE`
+- `DJANGO_DB_NAME`
+- `DJANGO_DB_HOST`
+- `DJANGO_DB_PORT`
+- `DJANGO_DB_USER`
+- `DJANGO_DB_PASSWORD`
+- `DJANGO_DEBUG`
+- `DJANGO_ALLOWED_HOSTS`
+- `DJANGO_SESSION_COOKIE_SECURE`
+- `DJANGO_CSRF_COOKIE_SECURE`
+- `DB_USER` y `DB_PASSWORD` como compatibilidad heredada
 
 ### 6.3 Dependencias reconstruidas
 
@@ -280,8 +291,8 @@ Modo superusuario:
 - `db.sqlite3` existe en el directorio, pero el proyecto apunta a MySQL; no debe considerarse fuente de verdad.
 - Las suites `core/tests.py` y `jakaru_pora/tests.py` estan practicamente vacias.
 - El sistema depende de archivos media y posiblemente datos operativos externos no incluidos en Git.
-- La logica de hash de `Dispositivo` merece revision: la verificacion usa SHA-256, pero el `save()` solo hasharia el valor cuando `uuid` estuviera vacio, lo que no coincide con el flujo de creacion observado.
-- La configuracion actual no esta lista para desarrollo local sin ajustes temporales de host/cookies/debug.
+- La normalizacion del `device` se corrigio para contemplar registros legacy con UUID raw y devolver siempre el valor canonico SHA-256.
+- La configuracion ahora admite un perfil local con SQLite y cookies insecure solo por entorno, sin cambiar el default productivo.
 
 ## 9. Contenido excluido del versionado inicial
 
