@@ -22,7 +22,7 @@ def env_bool(
     default: bool,
     environ: Mapping[str, str] | None = None,
 ) -> bool:
-    env = environ or os.environ
+    env = os.environ if environ is None else environ
     value = env.get(name)
     if value is None:
         return default
@@ -34,7 +34,7 @@ def env_list(
     default: str,
     environ: Mapping[str, str] | None = None,
 ) -> list[str]:
-    env = environ or os.environ
+    env = os.environ if environ is None else environ
     raw_value = env.get(name, default)
     return [item.strip() for item in raw_value.split(",") if item.strip()]
 
@@ -66,7 +66,7 @@ def build_database_config(
     base_dir: Path,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, dict[str, str | Path]]:
-    env = environ or os.environ
+    env = os.environ if environ is None else environ
     db_engine = env.get("DJANGO_DB_ENGINE", "mysql").strip().lower()
 
     if db_engine == "sqlite":
