@@ -18,6 +18,7 @@ static/
 
 # Project-local operational artifacts
 data.csv
+backups/
 jakaru_pora/mds_respaldo.tar.gz
 
 # Tooling caches

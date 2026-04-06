@@ -60,6 +60,14 @@ Compatibilidad heredada:
 - `DB_USER`
 - `DB_PASSWORD`
 
+## Baseline y flujo Git
+
+- `origin/main` es la foto versionada del backend hoy tomado como baseline de produccion.
+- `main` debe mantenerse siempre en estado desplegable.
+- `prod/bootstrap-2026-04-02` congela el bootstrap inicial de produccion.
+- `stabilization/env-device-hardening` concentra la validacion del commit `4305864` antes de promoverlo a `main`.
+- Toda nueva tarea debe salir desde `main` o desde una rama de estabilizacion ya validada.
+
 ## Puesta en marcha local
 
 1. Crear entorno virtual:
@@ -107,6 +115,17 @@ DJANGO_CSRF_COOKIE_SECURE=false \
 DJANGO_DB_ENGINE=sqlite \
 DJANGO_DB_NAME=db.sqlite3 \
 .venv/bin/python manage.py runserver 127.0.0.1:8000
+```
+
+### Smoke tests minimos
+
+Para validar la configuracion local y el flujo mobile sin depender de MySQL:
+
+```bash
+DJANGO_SERVER_KEY=test-secret \
+DJANGO_DB_ENGINE=sqlite \
+DJANGO_DB_NAME=/tmp/jacarupora-smoke.sqlite3 \
+python3 manage.py test
 ```
 
 ## Consideraciones para entorno local
@@ -158,6 +177,7 @@ La configuracion activa usa MySQL por defecto, pero ahora admite SQLite para des
   - requiere header `X-DEVICE-ID`
   - recibe una lista JSON con datos de beneficiario y relevamiento
   - soporta `foto1` y `foto2` en base64
+  - durante la transicion acepta tanto el `device` canonico devuelto por `/auth` como IDs legacy raw ya conocidos por el backend
 
 ## Comando de usuarios
 
@@ -177,11 +197,15 @@ El comando genera `media/out.csv` con credenciales cuando se usa el modo masivo.
 ## Riesgos y observaciones del sistema heredado
 
 - No hay lockfile ni manifiesto de dependencias original; `requirements.txt` fue reconstruido a partir del codigo.
-- La cobertura de tests no esta implementada en forma significativa.
+- La cobertura sigue siendo minima; hoy se cubren smoke tests de configuracion y compatibilidad del flujo mobile.
 - Hay dependencias operativas externas no versionadas en este repo: base MySQL, datos reales y archivos media.
 - Existen decisiones tecnicas heredadas que conviene revisar antes de evolucionar funcionalmente el sistema.
 - El endpoint mobile de auth sigue usando `@csrf_exempt`.
-- La seguridad y operacion heredadas se mantuvieron; solo se agrego configuracion por entorno y normalizacion del `device`.
+- La seguridad y operacion heredadas se mantuvieron; solo se agrego configuracion por entorno y una compatibilidad transitoria para `device`.
+
+## Operacion y backup
+
+El procedimiento base de backup, deploy y rollback del VPS quedo documentado en `docs/operacion-vps.md`.
 
 ## Contenido versionado en esta inicializacion
 
@@ -199,4 +223,5 @@ Se excluyen:
 - `media/`
 - `data.csv`
 - `jakaru_pora/mds_respaldo.tar.gz`
+- `backups/`
 - artefactos bajo `static/`
