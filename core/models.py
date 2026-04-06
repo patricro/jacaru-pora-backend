@@ -33,9 +33,16 @@ class Dispositivo(models.Model):
 
         return all(char in "0123456789abcdef" for char in value.lower())
 
+    @classmethod
+    def normalizar_uuid(cls, value: str) -> str:
+        if cls.es_uuid_canonico(value):
+            return value
+
+        return cls.verificar(value)
+
     def save(self, **kwargs):
         if self.uuid and not self.es_uuid_canonico(self.uuid):
-            self.uuid = self.verificar(self.uuid)
+            self.uuid = self.normalizar_uuid(self.uuid)
         super().save(**kwargs)
 
 

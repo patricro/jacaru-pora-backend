@@ -27,11 +27,11 @@ class LoginView(View):
                 obj = None
                 if data.get("id_dispositivo") and data.get("modelo"):
                     raw_device_id = data.get("id_dispositivo")
-                    canonical_uuid = Dispositivo.verificar(raw_device_id)
+                    canonical_uuid = Dispositivo.normalizar_uuid(raw_device_id)
 
-                    obj = user.dispositivo_set.filter(uuid=canonical_uuid).first()
+                    obj = user.dispositivo_set.filter(uuid=raw_device_id).first()
                     if not obj:
-                        obj = user.dispositivo_set.filter(uuid=raw_device_id).first()
+                        obj = user.dispositivo_set.filter(uuid=canonical_uuid).first()
 
                     if obj:
                         updated = False
