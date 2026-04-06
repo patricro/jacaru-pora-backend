@@ -78,7 +78,10 @@ Detalles:
 
 - Autentica usuario con credenciales Django
 - Busca o crea un `Dispositivo`
+- El endpoint sigue expuesto con `@csrf_exempt` por tratarse de una API JSON usada por cliente mobile
+- El identificador devuelto en `device` se normaliza al formato canónico `sha256(id_dispositivo)`
 - El `POST` de relevamientos usa `device_required` y espera el header `X-DEVICE-ID`
+- Durante la transicion, `device_required` acepta tanto el ID canonico como un ID raw legacy si ese valor ya fue normalizado por el backend
 
 ## 4. Modelado actual
 
@@ -203,23 +206,33 @@ El modelo guarda fotos en `media/jakaru_pora/relevamiento`.
   - crea `Relevamiento`
   - decodifica `foto1` y `foto2` desde base64 si estan presentes
   - devuelve lista de DNIs insertados
+  - acepta temporalmente headers legacy raw ademas del valor canonico devuelto por `/auth`
 
 ## 6. Configuracion y dependencias
 
 ### 6.1 Settings relevantes
 
-- `DEBUG = False`
-- `ALLOWED_HOSTS = ["jakarupora.telco.com.ar", "179.0.181.50"]`
+- `DEBUG` configurable por `DJANGO_DEBUG`
+- `ALLOWED_HOSTS` configurable por `DJANGO_ALLOWED_HOSTS`
 - `AUTH_USER_MODEL = "core.User"`
-- base de datos MySQL `mds`
+- base de datos MySQL por defecto, SQLite opcional para desarrollo local
 - `STATICFILES_DIRS = [BASE_DIR / "static"]`
 - `MEDIA_ROOT = BASE_DIR / "media"`
 
 ### 6.2 Variables de entorno requeridas
 
 - `DJANGO_SERVER_KEY`
-- `DB_USER`
-- `DB_PASSWORD`
+- `DJANGO_DB_ENGINE`
+- `DJANGO_DB_NAME`
+- `DJANGO_DB_HOST`
+- `DJANGO_DB_PORT`
+- `DJANGO_DB_USER`
+- `DJANGO_DB_PASSWORD`
+- `DJANGO_DEBUG`
+- `DJANGO_ALLOWED_HOSTS`
+- `DJANGO_SESSION_COOKIE_SECURE`
+- `DJANGO_CSRF_COOKIE_SECURE`
+- `DB_USER` y `DB_PASSWORD` como compatibilidad heredada
 
 ### 6.3 Dependencias reconstruidas
 
@@ -245,7 +258,16 @@ No se encontro lockfile ni manifiesto original del proveedor anterior.
 .venv/bin/python manage.py migrate
 ```
 
-### 7.3 Crear usuarios
+### 7.3 Smoke tests
+
+```bash
+DJANGO_SERVER_KEY=test-secret \
+DJANGO_DB_ENGINE=sqlite \
+DJANGO_DB_NAME=/tmp/jacarupora-smoke.sqlite3 \
+python3 manage.py test
+```
+
+### 7.4 Crear usuarios
 
 Ayuda:
 
@@ -278,12 +300,20 @@ Modo superusuario:
 - Hay dos mecanismos de acceso distintos: JWT para lectura y `X-DEVICE-ID` para carga de relevamientos.
 - `RelevamientoForm.save()` omite silenciosamente registros invalidos; no devuelve detalle de errores por item.
 - `db.sqlite3` existe en el directorio, pero el proyecto apunta a MySQL; no debe considerarse fuente de verdad.
-- Las suites `core/tests.py` y `jakaru_pora/tests.py` estan practicamente vacias.
+- Las suites `core/tests.py` y `jakaru_pora/tests.py` ahora cubren smoke tests de configuracion y compatibilidad del flujo mobile, pero no reemplazan una bateria funcional completa.
 - El sistema depende de archivos media y posiblemente datos operativos externos no incluidos en Git.
-- La logica de hash de `Dispositivo` merece revision: la verificacion usa SHA-256, pero el `save()` solo hasharia el valor cuando `uuid` estuviera vacio, lo que no coincide con el flujo de creacion observado.
-- La configuracion actual no esta lista para desarrollo local sin ajustes temporales de host/cookies/debug.
+- La normalizacion del `device` se corrigio para contemplar registros legacy con UUID raw, devolver siempre el valor canonico SHA-256 y aceptar temporalmente headers raw en `X-DEVICE-ID`.
+- La configuracion ahora admite un perfil local con SQLite y cookies insecure solo por entorno, sin cambiar el default productivo.
 
-## 9. Contenido excluido del versionado inicial
+## 9. Continuidad operativa y ramas
+
+- `origin/main` se toma como baseline versionado de produccion.
+- `main` debe permanecer deployable en todo momento.
+- `prod/bootstrap-2026-04-02` marca el baseline congelado del bootstrap inicial.
+- `stabilization/env-device-hardening` concentra la validacion del commit `4305864`.
+- El procedimiento de backup, deploy y rollback del VPS esta documentado en `docs/operacion-vps.md`.
+
+## 10. Contenido excluido del versionado inicial
 
 Para el bootstrap del repositorio se excluyen:
 
@@ -291,6 +321,7 @@ Para el bootstrap del repositorio se excluyen:
 - bases locales (`db.sqlite3`)
 - archivos de media
 - CSV operativos
+- directorio `backups/`
 - backups comprimidos
 - artefactos generados en `static/`
 

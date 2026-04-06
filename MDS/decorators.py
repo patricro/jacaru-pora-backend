@@ -11,13 +11,23 @@ def device_required(view_func):
             return JsonResponse({"error": "No autorizado"}, status=401)
 
         device_id = request.headers.get("X-DEVICE-ID")
+        device = Dispositivo.objects.filter(
+            uuid=device_id,
+            activo=True,
+        ).first()
 
-        if not Dispositivo.objects.filter(
-            uuid=device_id, activo=True).exists():
+        # Compatibilidad transitoria para clientes que sigan enviando el ID
+        # nativo luego de que el backend lo haya normalizado a SHA-256.
+        if not device and not Dispositivo.es_uuid_canonico(device_id):
+            device = Dispositivo.objects.filter(
+                uuid=Dispositivo.normalizar_uuid(device_id),
+                activo=True,
+            ).first()
+
+        if not device:
             return JsonResponse({"error" : "Dispositivo invalido."}, status=403)
 
-        else:
-            request.user = Dispositivo.objects.get(uuid=device_id).user
+        request.user = device.user
 
         return view_func(request, *args, **kwargs)
 

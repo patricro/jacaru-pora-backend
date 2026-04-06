@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from collections.abc import Mapping
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -13,13 +14,89 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SERVER_KEY")
 
+DEFAULT_ALLOWED_HOSTS = "jakarupora.telco.com.ar,179.0.181.50"
+
+
+def env_bool(
+    name: str,
+    default: bool,
+    environ: Mapping[str, str] | None = None,
+) -> bool:
+    env = os.environ if environ is None else environ
+    value = env.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(
+    name: str,
+    default: str,
+    environ: Mapping[str, str] | None = None,
+) -> list[str]:
+    env = os.environ if environ is None else environ
+    raw_value = env.get(name, default)
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+def build_runtime_settings(
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, bool | list[str]]:
+    return {
+        "DEBUG": env_bool("DJANGO_DEBUG", False, environ),
+        "ALLOWED_HOSTS": env_list(
+            "DJANGO_ALLOWED_HOSTS",
+            DEFAULT_ALLOWED_HOSTS,
+            environ,
+        ),
+        "SESSION_COOKIE_SECURE": env_bool(
+            "DJANGO_SESSION_COOKIE_SECURE",
+            True,
+            environ,
+        ),
+        "CSRF_COOKIE_SECURE": env_bool(
+            "DJANGO_CSRF_COOKIE_SECURE",
+            True,
+            environ,
+        ),
+    }
+
+
+def build_database_config(
+    base_dir: Path,
+    environ: Mapping[str, str] | None = None,
+) -> dict[str, dict[str, str | Path]]:
+    env = os.environ if environ is None else environ
+    db_engine = env.get("DJANGO_DB_ENGINE", "mysql").strip().lower()
+
+    if db_engine == "sqlite":
+        return {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": env.get("DJANGO_DB_NAME", base_dir / "db.sqlite3"),
+            }
+        }
+
+    return {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": env.get("DJANGO_DB_NAME", "mds"),
+            "USER": env.get("DJANGO_DB_USER", env.get("DB_USER")),
+            "PASSWORD": env.get("DJANGO_DB_PASSWORD", env.get("DB_PASSWORD")),
+            "HOST": env.get("DJANGO_DB_HOST", "127.0.0.1"),
+            "PORT": env.get("DJANGO_DB_PORT", "3306"),
+        }
+    }
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+runtime_settings = build_runtime_settings()
 
-ALLOWED_HOSTS = ["jakarupora.telco.com.ar", "179.0.181.50"]
+DEBUG = runtime_settings["DEBUG"]
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+ALLOWED_HOSTS = runtime_settings["ALLOWED_HOSTS"]
+
+SESSION_COOKIE_SECURE = runtime_settings["SESSION_COOKIE_SECURE"]
+CSRF_COOKIE_SECURE = runtime_settings["CSRF_COOKIE_SECURE"]
 
 # Application definition
 
@@ -67,16 +144,7 @@ WSGI_APPLICATION = 'MDS.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default" : {
-        "ENGINE" : "django.db.backends.mysql",
-        "NAME": "mds",
-        "USER": os.environ.get("DB_USER"),
-        "PASSWORD": os.environ.get("DB_PASSWORD"),
-        "HOST": "127.0.0.1",
-        "PORT": "3306"
-    }
-}
+DATABASES = build_database_config(BASE_DIR)
 
 
 # Password validation
